@@ -1,0 +1,10 @@
+# We might install something or otherwise modify the machine's state
+destructive
+
+# The machines to run the tests on. There are four POSIX groups,
+# these are used to balance all integration tests Ansible has
+# so that running all tests finishes in ~one hour.
+shippable/posix/group1
+
+# Make sure httpbin is there
+needs/httptester

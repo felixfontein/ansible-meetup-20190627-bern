@@ -1,0 +1,16 @@
+---
+- name: Run module
+  example06:
+    url: "https://{{ httpbin_host }}/post"
+  register: result
+
+- name: Check module result
+  assert:
+    that:
+      - result.status == 200
+      - "'body' in result"
+
+- name: Create file (unrelated)
+  copy:
+    dest: "{{ output_dir }}/test"
+    content: asdf
