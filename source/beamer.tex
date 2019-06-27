@@ -1,0 +1,528 @@
+\documentclass{beamer}
+\usepackage{tikz}
+\usepackage[utf8]{inputenc}
+\usepackage{beamerthemesplit}
+\usepackage[english]{babel}
+\usepackage{rotating}
+\usepackage{amsmath,amsfonts,amssymb,amsthm}
+\usepackage{latexsym}
+\usepackage{enumerate}
+\usepackage{grffile}
+\usepackage{listings}
+\usepackage{rotating}
+\usepackage{color}
+\usepackage{wasysym}
+\usepackage{algorithm2e}
+\usepackage{marvosym}
+\usepackage{multicol}
+\usetikzlibrary{calc,shapes.callouts,shapes.arrows,decorations.pathmorphing}
+
+\title{How to create a simple Ansible module}
+\author{Felix Fontein}
+\date{June 27, 2019}
+
+\usetheme{Frankfurt}
+\setbeamertemplate{navigation symbols}{}
+
+%\setbeamertemplate{background canvas}[vertical shading][bottom=red!10,top=blue!10]
+%\usetheme{Warsaw}
+%\usefonttheme[onlysmall]{structurebold}
+
+%\newtheorem{definition}{Definition}[section]
+%\newtheorem{theorem}[definition]{Theorem}
+%\newtheorem{proposition}[definition]{Proposition}
+%\newtheorem{lemma}[definition]{Lemma}
+%\newtheorem{corollary}[definition]{Corollary}
+%\newtheorem{remark}[definition]{Remark}
+%\newtheorem{remarks}[definition]{Remarks}
+%\newtheorem{example}[definition]{Example}
+%\newtheorem{examples}[definition]{Examples}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\F}{\mathbb{F}}
+
+\newcommand{\abs}[1]{{\left|{#1}\right|}}
+\newcommand{\norm}[1]{{\left\|{#1}\right\|}}
+\newcommand{\gen}[1]{{\left\langle{#1}\right\rangle}}
+\newcommand{\floor}[1]{{\left\lfloor{#1}\right\rfloor}}
+\newcommand{\Matrix}[1]{{\left(\begin{matrix} #1 \end{matrix}\right)}}
+
+\DeclareFontShape{OT1}{cmtt}{bx}{n}{<5><6><7><8><9><10><10.95><12><14.4><17.28><20.74><24.88>cmttb10}{}
+
+\setbeamerfont{itemize/enumerate body}{size=\Large}
+\setbeamerfont{itemize/enumerate subbody}{size=\Large}
+\setbeamerfont{itemize/enumerate subsubbody}{size=\footnotesize}
+
+\definecolor{darkgreen}{rgb}{0,0.6,0}
+\definecolor{darkred}{rgb}{0.6,0,0}
+\definecolor{darkblue}{rgb}{0,0,0.6}
+\definecolor{darkyellow}{rgb}{0.6,0.6,0}
+\definecolor{lightred}{rgb}{1,0.5,0.5}
+\definecolor{lightgreen}{rgb}{0.5,1,0.5}
+\definecolor{lightblue}{rgb}{0.5,0.5,1}
+\definecolor{lightyellow}{rgb}{1,1,0.5}
+\definecolor{lightgray}{gray}{0.75}
+\definecolor{verylightgray}{gray}{0.95}
+
+\newcount\fadein
+\newcount\fadeout
+\newcount\colorfade
+\newdimen\shift
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+\lstset{language=python,
+        basicstyle=\large\tt,
+        commentstyle=\color{mygreen},
+        keywordstyle=\color{blue},
+        stringstyle=\color{mymauve},
+        numbers=left,
+        numberstyle=\tiny\color{mygray},
+        stepnumber=1,
+        numbersep=5pt}
+
+\begin{document}
+
+  \frame{\titlepage}
+
+  \begin{frame}
+    \frametitle{Roadmap}
+    \tableofcontents%[pausesections]
+  \end{frame}
+
+  \section{Plugins and modules}
+  \begin{frame}
+    \frametitle{Action plugins and modules}
+    \begin{itemize}
+      \item \alert{Action plugins} behave like module
+      \item They are executed on controller node
+      \item They can transfer files to/from remote node
+      \item They can call module
+
+      \vspace{0.5cm}
+
+      \item<2-> \alert{Modules} are executed on remote node
+      \item<2-> Modules are copied and templated arguments are injected
+      \item<2-> Modules cannot access controller's state
+    \end{itemize}
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Modules}
+    \begin{itemize}
+      \item Modules are executable files
+      \item They receive input in JSON format
+      \item They have to output JSON
+
+      \vspace{0.5cm}
+
+      \item<2-> Ansible has a lot of Python support code to make writing modules easy
+
+      \vspace{0.5cm}
+
+      \item<3-> That's what we want to use today!
+    \end{itemize}
+  \end{frame}
+
+  \section{General principles}
+  \begin{frame}
+    \frametitle{General principles}
+    \begin{itemize}
+      \item UNIX philosophy: do only one thing, but do it well!
+      \item<2-> Modules should be idempotent if somehow possible
+      \item<3-> Different types of modules:
+      \begin{enumerate}
+        \item Modules which do something;
+        \item \lstinline|_info| / \lstinline|_facts| modules
+      \end{enumerate}
+      \item<4-> You can find \emph{a lot} of material on \url{https://docs.ansible.com/ansible/latest/dev_guide/index.html}
+    \end{itemize}
+  \end{frame}
+
+  \section{A simple module}
+
+  \begin{frame}[fragile]
+    \frametitle{A very simple module}
+\begin{lstlisting}{}
+#!/usr/bin/python
+from ansible.module_utils.basic import (
+  AnsibleModule
+)
+
+def main():
+  module = AnsibleModule(dict())
+  module.exit_json(msg="Hello!")
+
+if __name__ == '__main__':
+  main()
+\end{lstlisting}
+  \end{frame}
+
+  \subsection{Running the module}
+  \begin{frame}[fragile]
+    \frametitle{Running the module}
+    \begin{enumerate}
+      \item Create test playbook
+
+\begin{lstlisting}[language=bash, numbers=none]
+$ ${EDITOR} example01.yaml
+\end{lstlisting}
+      \item Create subdirectory «library»
+
+\begin{lstlisting}[language=bash, numbers=none]
+$ mkdir library
+\end{lstlisting}
+      \item Put module into there
+
+\begin{lstlisting}[language=bash, numbers=none]
+$ ${EDITOR} library/example01.py
+\end{lstlisting}
+      \item Execute playbook!
+
+\begin{lstlisting}[language=bash, numbers=none]
+$ ansible-playbook example01.yaml
+\end{lstlisting}
+    \end{enumerate}
+  \end{frame}
+
+  \subsection{Arguments}
+  \begin{frame}[fragile]
+    \frametitle{A simple module with arguments}
+\begin{lstlisting}{}
+def main():
+  argument_spec = dict(
+    name=dict(type='str',
+              required=True),
+    some_number=dict(type='int'),
+    colors=dict(type='list',
+                elements='str'),
+    state=dict(type='str',
+               default='present',
+               choices=['present', 'absent']),
+    password=dict(type='str',
+                  no_log=True),
+  )
+  module = AnsibleModule(argument_spec)
+  module.exit_json(**module.params)
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{A simple module which can fail}
+\begin{lstlisting}{}
+import os
+
+def main():
+  argument_spec = dict(
+    file=dict(type='path',
+              required=True),
+  )
+  module = AnsibleModule(argument_spec)
+
+  fn = module.params['file']
+  if not os.path.exists(fn):
+    module.fail_json(
+      msg='"%s" does not exist!' % fn
+    )
+  module.exit_json(msg='"%s" exists' % fn)
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{A simple module which runs a command}
+\begin{lstlisting}{}
+def main():
+  module = AnsibleModule(dict())
+
+  rc, stdout, stderr = module.run_command(
+    ['ls', '/'],
+    check_rc=True
+  )
+  # Ansible will fail if rc is != 0
+
+  files = [
+    f for f in stdout.split('\n') if f
+  ]
+  module.exit_json(files=files)
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{A simple module which POSTs to a URL}
+\begin{lstlisting}{}
+from ansible.module_utils.urls import \
+                                 fetch_url
+def main():
+  module = AnsibleModule(dict())
+  r, i = fetch_url(
+    module, 'https://httpbin.org/',
+    method='POST', data='x=42'
+  )
+  status = i["status"]
+  try:
+    body = r.read()
+  except:
+    body = i.get('body')
+  body = module.from_json(body)
+  module.exit_json(status=status, body=body)
+\end{lstlisting}
+  \end{frame}
+
+  \subsection{Debugging}
+  \begin{frame}[fragile]
+    \frametitle{What if something goes wrong?}
+    \begin{enumerate}
+      \item If module crashes, \lstinline{ansible-playbook -vvv}
+      will provide stacktrace
+      \item<2-> \lstinline{print()} will not work
+      \item<3-> Poor man's debugging:
+\begin{lstlisting}[numbers=none]
+module.exit_json(msg='...')
+raise Exception('xxx')
+\end{lstlisting}
+      \item<4-> Use \lstinline{q} (get via \lstinline{pip install q}):
+\begin{lstlisting}[numbers=none]
+import q
+q.q(value)
+\end{lstlisting}
+      Meanwhile, do \lstinline{tail -f /tmp/q}
+    \end{enumerate}
+  \end{frame}
+
+  \section{Documentation}
+  \begin{frame}[fragile]
+    \frametitle{Documenting modules}
+    \begin{itemize}
+      \item Documentation is included as Python strings
+      \item Keys \lstinline{DOCUMENTATION} and \lstinline{RETURN} are YAML
+      \item Key \lstinline{EXAMPLES} is essentially a list of Ansible tasks
+
+      \vspace{0.5cm}
+      \item<2-> \lstinline{DOCUMENTATION} contains module name, description, requirements, author, and parameter documentation
+      \item<2-> \lstinline{RETURN} documents returned variables
+      \item<2-> \lstinline{EXAMPLES} gives examples how to use the module
+    \end{itemize}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{Header}
+\begin{lstlisting}
+#!/usr/bin/python
+#
+# Copyright 2019 Felix Fontein
+# GNU General Public License v3.0+ (see COPYING
+# or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import absolute_import, ...
+__metaclass__ = type
+
+ANSIBLE_METADATA = {
+  'metadata_version': '1.1',
+  'status': ['preview'],
+  'supported_by': 'community'
+}
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{\lstinline{DOCUMENTATION} 1/2}
+\begin{lstlisting}[showstringspaces=false]
+DOCUMENTATION = r'''
+---
+module: example06
+short_description: Makes a POST
+description:
+  - Makes a POST to a URL.
+  - This is really only a test.
+version_added: "2.9"
+author:
+  - "Felix Fontein (@felixfontein)"
+requirements:
+  - mycustommodule >= 1.0
+  - An internet connection
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{\lstinline{DOCUMENTATION} 2/2}
+\begin{lstlisting}[showstringspaces=false]
+DOCUMENTATION = r'''
+---
+[...]
+options:
+  url:
+    description:
+      - The URL to POST to
+    required: yes
+    type: str
+'''
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{\lstinline{EXAMPLES}}
+\begin{lstlisting}[showstringspaces=false]
+EXAMPLES = r'''
+- name: Do something
+  example06:
+    url: https://example.com
+  register: result
+- debug:
+    msg: |
+      {{ result.status }} --
+      {{ result.body }}
+
+# This must be valid YAML. Correct Ansible
+# syntax is not checked, better do that
+# yourself!
+'''
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{\lstinline{RETURN}}
+\begin{lstlisting}[showstringspaces=false]
+RETURN = r'''
+status:
+  description:
+    - The status code of the POST request
+  returned: always
+  type: int
+  sample: 200
+body:
+  description:
+    - The parsed JSON result
+  returned: always
+  type: dict
+  sample: '{"key": "value"}'
+'''
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{Viewing the documentation}
+    \begin{enumerate}
+      \item Using \lstinline{ansible-doc}:
+\begin{lstlisting}[language=bash, numbers=none]
+$ export ANSIBLE_LIBRARY=library
+$ ansible-doc example06
+\end{lstlisting}
+      \item<2-> Build HTML documentation with Sphinx
+      \begin{itemize}
+        \item Clone \url{git@github.com:ansible/ansible.git}
+        \item Put your module into \lstinline{lib/ansible/modules}
+        \item In \lstinline{docs/docsite} run \lstinline{MODULES=example06 make webdocs} and wait
+        \item Open \lstinline{_build/html/modules/example06_module.html}
+      \end{itemize}
+    \end{enumerate}
+  \end{frame}
+
+  \section{Testing}
+  \begin{frame}
+    \frametitle{Testing}
+    \begin{itemize}
+      \item Sanity tests
+      \begin{itemize}
+        \item static code analysis (flake8, ...)
+        \item validate argument spec, compare to documentation
+        \item try to build documentation
+      \end{itemize}
+      \item Unit tests
+      \item Integration tests
+      \begin{itemize}
+        \item Essentially Ansible roles
+      \end{itemize}
+    \end{itemize}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{Sanity Testing with ansible-test}
+    \begin{itemize}
+      \item Assume you have your module embedded in the Ansible GIT tree
+      \item Module: \lstinline{lib/ansible/modules/example06.py}
+    \end{itemize}
+
+\begin{lstlisting}[language=bash, numbers=none]
+test/runner/ansible-test sanity \
+    lib/ansible/modules/example06.py \
+    --docker-no-pull --docker
+\end{lstlisting}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{Integration Testing with ansible-test}
+    \begin{itemize}
+      \item Module: \lstinline{lib/ansible/modules/example06.py}
+      \item Tests: \lstinline{test/integration/targets/example06/}
+      \begin{itemize}
+        \item \lstinline{aliases}: CI options, other modules which have the same tests
+        \item \lstinline{meta/main.yml}: dependencies (like \lstinline{prepare_http_tests})
+        \item \lstinline{tasks/main.yml}: the tests themselves
+      \end{itemize}
+    \end{itemize}
+
+\begin{lstlisting}[language=bash, numbers=none]
+test/runner/ansible-test integration -v \
+    --docker-no-pull --docker ubuntu1804 \
+    example06
+\end{lstlisting}
+  \end{frame}
+
+  \section{Getting Your Module into Ansible}
+  \begin{frame}
+    \frametitle{Getting Your Module into Ansible (1/2)}
+    \begin{itemize}
+      \item \alert{Really read (parts of) the dev guide!}
+      \url{https://docs.ansible.com/ansible/latest/dev_guide/index.html}
+      \item In particular: \href{https://docs.ansible.com/ansible/latest/dev_guide/developing_modules_checklist.html}{\alert{«Contributing your module to Ansible»}} checklist
+      (search for «I want to contribute my module or plugin.»)
+      \item Definitely \alert{add} integration \alert{tests}, even if marked
+      as \lstinline{unsupported}
+    \end{itemize}
+  \end{frame}
+
+  \begin{frame}
+    \frametitle{Getting Your Module into Ansible (2/2)}
+    \begin{itemize}
+      \item Make sure sanity and integration tests work before pushing
+      \item Push to GitHub, create PR
+      \item Make sure to fill in the provided form
+      \item Make sure that CI (Shippable) runs through
+      \item Tell people about your PR!
+      \item<2-> Now you need \alert{reviews}...
+    \end{itemize}
+  \end{frame}
+
+  \begin{frame}[fragile]
+    \frametitle{Getting Your New Module PR Reviewed}
+    \begin{itemize}
+      \item Ask people you know who could use the module to test it
+      \item All kind of user feedback is welcome
+        \begin{itemize}
+          \item how it was to use
+          \item strange/unexpected behavior, missing functionality
+          \item bugs
+        \end{itemize}
+      \item<2-> Try to get people to review the code
+      \item<2-> Also try to get people to review all the Ansible details
+      \item<2-> Ask nicely in \verb|#ansible-devel| (FreeNode)
+    \end{itemize}
+  \end{frame}
+
+  \section*{}
+  \begin{frame}
+    \begin{center}
+      \Huge Thank You\\
+      for your attention!
+
+      \vspace{1.5cm}
+
+      \LARGE Questions? Comments?
+    \end{center}
+  \end{frame}
+\end{document}
