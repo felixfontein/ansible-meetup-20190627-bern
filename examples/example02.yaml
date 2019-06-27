@@ -1,0 +1,13 @@
+---
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - example02:
+        name: hello bern!
+        some_number: "23"
+        colors:
+          - green
+          - blue
+          - yes
+          - 1.10
+        password: hunter2

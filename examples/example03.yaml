@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - example03:
+        file: example01.yaml
+    - example03:
+        file: does-not-exists
